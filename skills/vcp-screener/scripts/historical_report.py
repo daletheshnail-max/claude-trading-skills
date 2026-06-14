@@ -7,7 +7,6 @@ output: that one is "ranked list at a single point in time", this one is
 """
 
 import json
-from typing import Optional
 
 
 def generate_historical_json_report(
@@ -48,9 +47,11 @@ def generate_historical_markdown_report(
         f"outcome_window={metadata.get('outcome_days', '?')}d"
     )
     lines.append("")
-    lines.append("> **Note**: `marketCap` and absolute RS percentile reflect the "
-                 "ticker in isolation, not against the live screening universe. "
-                 "Use this report for pattern study, not portfolio sizing.")
+    lines.append(
+        "> **Note**: `marketCap` and absolute RS percentile reflect the "
+        "ticker in isolation, not against the live screening universe. "
+        "Use this report for pattern study, not portfolio sizing."
+    )
     lines.append("")
     lines.append("---")
     lines.append("")
@@ -64,12 +65,8 @@ def generate_historical_markdown_report(
     lines.append(f"| Breakouts | {summary['breakouts']} |")
     lines.append(f"| Stop hits | {summary['stop_hits']} |")
     lines.append(f"| Timeouts | {summary['timeouts']} |")
-    lines.append(
-        f"| Hit rate (breakouts / resolved) | {summary['hit_rate_pct']}% |"
-    )
-    lines.append(
-        f"| Avg max gain (breakouts only) | {summary['avg_max_gain_breakout_pct']}% |"
-    )
+    lines.append(f"| Hit rate (breakouts / resolved) | {summary['hit_rate_pct']}% |")
+    lines.append(f"| Avg max gain (breakouts only) | {summary['avg_max_gain_breakout_pct']}% |")
     lines.append("")
     lines.append("---")
     lines.append("")

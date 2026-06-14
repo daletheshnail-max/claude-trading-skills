@@ -234,7 +234,8 @@ class FMPClient:
                 if not data:
                     self._record_endpoint_failure(base_url)
                     self._warn_fallback(
-                        base_url, is_last,
+                        base_url,
+                        is_last,
                         f"response had no rows matching '{symbols_str}'",
                     )
                     continue
@@ -279,7 +280,9 @@ class FMPClient:
                 elif is_single and data.get("symbol"):
                     if data["symbol"].replace("-", ".") != symbols_str.replace("-", "."):
                         valid = False
-                        shape_issue = f"response symbol '{data['symbol']}' != requested '{symbols_str}'"
+                        shape_issue = (
+                            f"response symbol '{data['symbol']}' != requested '{symbols_str}'"
+                        )
 
             if valid:
                 self._endpoint_failures[base_url] = 0

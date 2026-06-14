@@ -29,9 +29,9 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import screen_vcp  # noqa: E402  — bound at module load so tests can monkeypatch
-                   # `historical_scanner.screen_vcp.analyze_stock` deterministically.
-from calculators.forward_outcome import calculate_forward_outcome  # noqa: E402
 
+# `historical_scanner.screen_vcp.analyze_stock` deterministically.
+from calculators.forward_outcome import calculate_forward_outcome  # noqa: E402
 
 _TICKER_RE = re.compile(r"^[A-Z][A-Z0-9.\-]{0,11}$")
 
@@ -44,9 +44,7 @@ def sanitize_ticker(symbol: str) -> str:
     """
     sym = (symbol or "").upper().strip()
     if not _TICKER_RE.match(sym):
-        raise ValueError(
-            f"Invalid ticker symbol: {symbol!r}. Must match {_TICKER_RE.pattern}"
-        )
+        raise ValueError(f"Invalid ticker symbol: {symbol!r}. Must match {_TICKER_RE.pattern}")
     return sym
 
 
@@ -78,9 +76,7 @@ def build_quote_from_history(
     year_low = min(d.get("low", 0) for d in window if d.get("low", 0) > 0)
     vol_window = historical[as_of_offset : as_of_offset + 50]
     avg_volume = (
-        int(sum(d.get("volume", 0) for d in vol_window) / len(vol_window))
-        if vol_window
-        else 0
+        int(sum(d.get("volume", 0) for d in vol_window) / len(vol_window)) if vol_window else 0
     )
 
     return {

@@ -76,18 +76,18 @@ class TestFallbackTransparency:
     'Legacy Endpoint' error with no context."""
 
     @patch("fmp_client.requests.Session")
-    def test_stable_error_surfaced_when_falling_back_to_v3(
-        self, mock_session_class, capsys
-    ):
+    def test_stable_error_surfaced_when_falling_back_to_v3(self, mock_session_class, capsys):
         """403 on stable, 403 on v3 — both errors must appear in stderr."""
         mock_session = MagicMock()
         mock_session.get.side_effect = [
             _mock_response(
-                403, None,
+                403,
+                None,
                 text='{"Error Message": "Special Endpoint: This symbol is not available..."}',
             ),
             _mock_response(
-                403, None,
+                403,
+                None,
                 text='{"Error Message": "Legacy Endpoint: only legacy users..."}',
             ),
         ]
@@ -118,8 +118,17 @@ class TestFallbackTransparency:
         mock_session = MagicMock()
         mock_session.get.return_value = _mock_response(
             200,
-            [{"symbol": "AAPL", "date": "2026-01-01", "open": 1.0, "high": 1.0,
-              "low": 1.0, "close": 1.0, "volume": 1000}],
+            [
+                {
+                    "symbol": "AAPL",
+                    "date": "2026-01-01",
+                    "open": 1.0,
+                    "high": 1.0,
+                    "low": 1.0,
+                    "close": 1.0,
+                    "volume": 1000,
+                }
+            ],
         )
         mock_session_class.return_value = mock_session
 

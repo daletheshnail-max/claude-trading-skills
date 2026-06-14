@@ -43,7 +43,6 @@ from fmp_client import FMPClient
 from report_generator import generate_json_report, generate_markdown_report
 from scorer import calculate_composite_score
 
-
 # Historical scan window default (~5 years in trading days). Used by
 # argparse `const=` so bare `--history` keeps the prior default behavior.
 DEFAULT_HISTORY_DAYS = 1260
@@ -236,8 +235,7 @@ def parse_arguments():
             parser.error("--history requires --ticker SYM")
         if not (100 <= args.history <= 5040):
             parser.error(
-                "--history must be 100-5040 trading days "
-                "(approximately 5 months to 20 years)"
+                "--history must be 100-5040 trading days (approximately 5 months to 20 years)"
             )
         if not (1 <= args.stride_days <= 60):
             parser.error("--stride-days must be 1-60")

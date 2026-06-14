@@ -338,9 +338,7 @@ class TestZoneVolumeIndexContract:
             return original(historical_prices, *args, **kwargs)
 
         with mock.patch("screen_vcp.calculate_volume_pattern", side_effect=_capture):
-            analyze_stock(
-                "TEST", history_260, quote, sp500_260, lookback_days=lookback
-            )
+            analyze_stock("TEST", history_260, quote, sp500_260, lookback_days=lookback)
 
         assert captured_lengths, "calculate_volume_pattern was not called"
         assert captured_lengths[0] == lookback, (

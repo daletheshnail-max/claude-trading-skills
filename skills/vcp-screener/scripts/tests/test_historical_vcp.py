@@ -13,11 +13,9 @@ import sys
 
 import pytest
 
-
 # Reuse the synthetic-data helper from the existing test module.
 sys.path.insert(0, os.path.dirname(__file__))
 from test_vcp_screener import _make_prices  # noqa: E402
-
 
 # ===========================================================================
 # analyze_stock(as_of_offset=...) — equivalence with pre-sliced inputs
@@ -152,8 +150,11 @@ class TestForwardOutcome:
         hist = _hist(closes)
         as_of_offset = 5  # MRF index of close=100 (the oldest)
         result = calculate_forward_outcome(
-            hist, as_of_offset=as_of_offset,
-            pivot_price=104.0, stop_price=95.0, max_window_days=10,
+            hist,
+            as_of_offset=as_of_offset,
+            pivot_price=104.0,
+            stop_price=95.0,
+            max_window_days=10,
         )
         assert result["outcome_type"] == "breakout"
         assert result["days_to_outcome"] == 4  # 100 -> 101 -> 102 -> 103 -> 105
@@ -171,8 +172,11 @@ class TestForwardOutcome:
         closes = [100, 99, 96, 93, 95, 98]
         hist = _hist(closes)
         result = calculate_forward_outcome(
-            hist, as_of_offset=5,
-            pivot_price=105.0, stop_price=95.0, max_window_days=10,
+            hist,
+            as_of_offset=5,
+            pivot_price=105.0,
+            stop_price=95.0,
+            max_window_days=10,
         )
         assert result["outcome_type"] == "stop_hit"
         assert result["days_to_outcome"] == 3
@@ -185,8 +189,11 @@ class TestForwardOutcome:
         closes = [100] + [101, 99, 100, 102, 98]  # newest -> still in range
         hist = _hist(closes)
         result = calculate_forward_outcome(
-            hist, as_of_offset=5,
-            pivot_price=110.0, stop_price=90.0, max_window_days=10,
+            hist,
+            as_of_offset=5,
+            pivot_price=110.0,
+            stop_price=90.0,
+            max_window_days=10,
         )
         assert result["outcome_type"] == "timeout"
         assert result["days_to_outcome"] is None
@@ -200,8 +207,11 @@ class TestForwardOutcome:
         hist = _hist([100, 101, 102])
         # as_of at oldest = MRF index 2; 2 forward bars: [102, 101] reversed -> 101, 102
         result = calculate_forward_outcome(
-            hist, as_of_offset=2,
-            pivot_price=120.0, stop_price=80.0, max_window_days=10,
+            hist,
+            as_of_offset=2,
+            pivot_price=120.0,
+            stop_price=80.0,
+            max_window_days=10,
         )
         # Neither hit, but window was truncated by available data.
         assert result["outcome_type"] == "timeout"
@@ -211,9 +221,7 @@ class TestForwardOutcome:
         from calculators.forward_outcome import calculate_forward_outcome
 
         hist = _hist([100])
-        result = calculate_forward_outcome(
-            hist, as_of_offset=0, pivot_price=110.0, stop_price=90.0
-        )
+        result = calculate_forward_outcome(hist, as_of_offset=0, pivot_price=110.0, stop_price=90.0)
         assert result["outcome_type"] == "insufficient_data"
         assert result["bars_available"] == 0
 
@@ -229,8 +237,11 @@ class TestForwardOutcome:
         closes = [100, 108, 92, 95, 99]
         hist = _hist(closes)
         result = calculate_forward_outcome(
-            hist, as_of_offset=4,
-            pivot_price=110.0, stop_price=95.0, max_window_days=10,
+            hist,
+            as_of_offset=4,
+            pivot_price=110.0,
+            stop_price=95.0,
+            max_window_days=10,
         )
         assert result["outcome_type"] == "stop_hit"
         assert result["max_gain_pct"] == pytest.approx(8.0, abs=0.01)
@@ -307,10 +318,22 @@ def _fake_vcp_result(symbol, pivot, t1_high_date, last_low_date):
             "valid_vcp": True,
             "num_contractions": 2,
             "contractions": [
-                {"label": "T1", "high_date": t1_high_date, "low_date": "2024-01-05",
-                 "high_price": pivot, "low_price": pivot * 0.85, "depth_pct": 15.0},
-                {"label": "T2", "high_date": "2024-01-25", "low_date": last_low_date,
-                 "high_price": pivot * 0.99, "low_price": pivot * 0.92, "depth_pct": 7.0},
+                {
+                    "label": "T1",
+                    "high_date": t1_high_date,
+                    "low_date": "2024-01-05",
+                    "high_price": pivot,
+                    "low_price": pivot * 0.85,
+                    "depth_pct": 15.0,
+                },
+                {
+                    "label": "T2",
+                    "high_date": "2024-01-25",
+                    "low_date": last_low_date,
+                    "high_price": pivot * 0.99,
+                    "low_price": pivot * 0.92,
+                    "depth_pct": 7.0,
+                },
             ],
         },
         "volume_pattern": {"score": 70, "dry_up_ratio": 0.5},
@@ -332,9 +355,9 @@ class TestHistoricalScannerDedup:
         # Inject a fake analyze_stock that always returns the same VCP.
         def fake_analyze(symbol, historical, quote, sp500, **kw):
             offset = kw.get("as_of_offset", 0)
-            r = _fake_vcp_result("TEST", pivot=110.0,
-                                 t1_high_date="2024-01-01",
-                                 last_low_date="2024-02-15")
+            r = _fake_vcp_result(
+                "TEST", pivot=110.0, t1_high_date="2024-01-01", last_low_date="2024-02-15"
+            )
             # Vary something irrelevant to the dedup key so we can confirm
             # multiple invocations happened.
             r["_offset"] = offset
@@ -356,7 +379,8 @@ class TestHistoricalScannerDedup:
             offset = kw.get("as_of_offset", 0)
             # Return a "different" pattern at each offset by varying the dates.
             return _fake_vcp_result(
-                "TEST", pivot=100 + offset,
+                "TEST",
+                pivot=100 + offset,
                 t1_high_date=f"2024-01-{offset:03d}",
                 last_low_date=f"2024-02-{offset:03d}",
             )
@@ -376,7 +400,8 @@ class TestHistoricalScannerDedup:
             offset = kw.get("as_of_offset", 0)
             # Use the as-of bar's date so output ordering reflects time.
             return _fake_vcp_result(
-                "TEST", pivot=100.0 + offset,
+                "TEST",
+                pivot=100.0 + offset,
                 t1_high_date=historical[offset]["date"],
                 last_low_date=historical[max(offset - 10, 0)]["date"],
             )
@@ -402,6 +427,7 @@ class TestHistoryFlagParsing:
 
     def _parse(self, *cli_args):
         import sys as _sys
+
         from screen_vcp import parse_arguments
 
         original = _sys.argv
@@ -460,8 +486,16 @@ class TestSanitizeTicker:
     def test_rejects_path_traversal(self):
         from historical_scanner import sanitize_ticker
 
-        for evil in ("../etc/passwd", "../../FOO", "FOO/BAR", "FOO\\BAR",
-                     "FOO BAR", "", "1FOO", "FOO;rm -rf /"):
+        for evil in (
+            "../etc/passwd",
+            "../../FOO",
+            "FOO/BAR",
+            "FOO\\BAR",
+            "FOO BAR",
+            "",
+            "1FOO",
+            "FOO;rm -rf /",
+        ):
             with pytest.raises(ValueError):
                 sanitize_ticker(evil)
 
@@ -472,8 +506,9 @@ class TestSanitizeTicker:
 
 
 class TestHistoricalReport:
-    def _sample_detection(self, as_of="2024-03-15", outcome_type="breakout",
-                          days=10, gain=12.0, loss=-3.0):
+    def _sample_detection(
+        self, as_of="2024-03-15", outcome_type="breakout", days=10, gain=12.0, loss=-3.0
+    ):
         return {
             "symbol": "TEST",
             "as_of_date": as_of,
@@ -486,12 +521,24 @@ class TestHistoricalReport:
                 "num_contractions": 3,
                 "pattern_duration_days": 45,
                 "contractions": [
-                    {"label": "T1", "high_date": "2024-02-01", "high_price": 105.50,
-                     "low_date": "2024-02-15", "low_price": 95.00,
-                     "depth_pct": 9.9, "duration_days": 14},
-                    {"label": "T2", "high_date": "2024-02-20", "high_price": 104.30,
-                     "low_date": "2024-03-01", "low_price": 99.50,
-                     "depth_pct": 4.6, "duration_days": 10},
+                    {
+                        "label": "T1",
+                        "high_date": "2024-02-01",
+                        "high_price": 105.50,
+                        "low_date": "2024-02-15",
+                        "low_price": 95.00,
+                        "depth_pct": 9.9,
+                        "duration_days": 14,
+                    },
+                    {
+                        "label": "T2",
+                        "high_date": "2024-02-20",
+                        "high_price": 104.30,
+                        "low_date": "2024-03-01",
+                        "low_price": 99.50,
+                        "depth_pct": 4.6,
+                        "duration_days": 10,
+                    },
                 ],
             },
             "forward_outcome": {
@@ -510,6 +557,7 @@ class TestHistoricalReport:
         detections = [self._sample_detection()]
         generate_historical_json_report("TEST", detections, {"generated_at": "now"}, str(out))
         import json as _json
+
         data = _json.loads(out.read_text(encoding="utf-8"))
         assert data["symbol"] == "TEST"
         assert data["summary"]["total"] == 1
@@ -520,18 +568,26 @@ class TestHistoricalReport:
 
         out = tmp_path / "hist.md"
         detections = [
-            self._sample_detection(as_of="2024-03-15", outcome_type="breakout",
-                                   days=10, gain=12.0, loss=-3.0),
-            self._sample_detection(as_of="2024-08-22", outcome_type="stop_hit",
-                                   days=4, gain=2.1, loss=-8.5),
-            self._sample_detection(as_of="2025-01-10", outcome_type="timeout",
-                                   days=None, gain=5.0, loss=-2.0),
+            self._sample_detection(
+                as_of="2024-03-15", outcome_type="breakout", days=10, gain=12.0, loss=-3.0
+            ),
+            self._sample_detection(
+                as_of="2024-08-22", outcome_type="stop_hit", days=4, gain=2.1, loss=-8.5
+            ),
+            self._sample_detection(
+                as_of="2025-01-10", outcome_type="timeout", days=None, gain=5.0, loss=-2.0
+            ),
         ]
         generate_historical_markdown_report(
-            "TEST", detections,
-            {"generated_at": "2026-05-19", "stride_days": 5,
-             "lookback_days": 120, "outcome_days": 60,
-             "history_range": "2020-01 to 2026-05"},
+            "TEST",
+            detections,
+            {
+                "generated_at": "2026-05-19",
+                "stride_days": 5,
+                "lookback_days": 120,
+                "outcome_days": 60,
+                "history_range": "2020-01 to 2026-05",
+            },
             str(out),
         )
         text = out.read_text(encoding="utf-8")
@@ -585,6 +641,7 @@ class TestRunHistoricalE2E:
     def test_end_to_end_dispatch_writes_reports(self, tmp_path):
         """run_historical() must fetch history, sweep, and write both reports."""
         import types
+
         from screen_vcp import run_historical
 
         # Build a long, mostly trending synthetic history. We don't require
@@ -625,6 +682,7 @@ class TestRunHistoricalE2E:
 
         # Verify the JSON is well-formed and has expected top-level keys.
         import json as _json
+
         data = _json.loads(json_files[0].read_text(encoding="utf-8"))
         assert data["symbol"] == "TEST"
         assert "detections" in data

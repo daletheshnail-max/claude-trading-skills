@@ -137,6 +137,13 @@ jobs:
           --cov-report=term-missing
           --cov-append
 
+      - name: Test stockbee-momentum-burst-screener
+        run: >
+          python -m pytest skills/stockbee-momentum-burst-screener/scripts/tests/ -v
+          --cov=skills/stockbee-momentum-burst-screener/scripts
+          --cov-report=term-missing
+          --cov-append
+
       - name: Test uptrend-analyzer
         run: >
           python -m pytest skills/uptrend-analyzer/scripts/tests/ -v

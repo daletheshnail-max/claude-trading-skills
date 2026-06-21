@@ -2,7 +2,7 @@ schema_version: 1
 id: swing-opportunity-daily
 display_name: Swing Opportunity Daily
 cadence: daily
-estimated_minutes: 30
+estimated_minutes: 35
 target_users:
   - part-time-swing-trader
 difficulty: intermediate
@@ -22,6 +22,7 @@ required_skills:
   - position-sizer
   - trader-memory-core
 optional_skills:
+  - stockbee-momentum-burst-screener
   - canslim-screener
   - breakout-trade-planner
   - theme-detector
@@ -39,25 +40,28 @@ artifacts:
   - id: vcp_candidates
     produced_by_step: 1
     required: true
-  - id: canslim_candidates
+  - id: momentum_burst_candidates
     produced_by_step: 2
     required: false
-  - id: theme_candidates
+  - id: canslim_candidates
     produced_by_step: 3
     required: false
-  - id: validated_setups
+  - id: theme_candidates
     produced_by_step: 4
-    required: true
-  - id: position_sizing
+    required: false
+  - id: validated_setups
     produced_by_step: 5
     required: true
-  - id: trade_plans
+  - id: position_sizing
     produced_by_step: 6
+    required: true
+  - id: trade_plans
+    produced_by_step: 7
     required: false
     downstream_hints:
       - trade-memory-loop
   - id: candidate_journal_entry
-    produced_by_step: 7
+    produced_by_step: 8
     required: true
     downstream_hints:
       - trade-memory-loop
@@ -71,6 +75,14 @@ steps:
     decision_gate: false
 
   - step: 2
+    name: Run Stockbee momentum burst screener
+    skill: stockbee-momentum-burst-screener
+    optional: true
+    produces:
+      - momentum_burst_candidates
+    decision_gate: false
+
+  - step: 3
     name: Run CANSLIM screener
     skill: canslim-screener
     optional: true
@@ -78,7 +90,7 @@ steps:
       - canslim_candidates
     decision_gate: false
 
-  - step: 3
+  - step: 4
     name: Theme detection cross-check
     skill: theme-detector
     optional: true
@@ -86,21 +98,23 @@ steps:
       - theme_candidates
     decision_gate: false
 
-  - step: 4
+  - step: 5
     name: Validate setups on weekly chart
     skill: technical-analyst
     consumes:
       - vcp_candidates
+      - momentum_burst_candidates
       - canslim_candidates
       - theme_candidates
     produces:
       - validated_setups
     decision_gate: true
     decision_question: >-
-      Which candidates have a clean weekly setup (Stage 2 uptrend, tight base)
-      and pass the manual chart review? Reject candidates that don't.
+      Which candidates have a clean weekly setup (Stage 2 uptrend, tight base,
+      or Stockbee-style range expansion from a controlled base) and pass the
+      manual chart review? Reject candidates that don't.
 
-  - step: 5
+  - step: 6
     name: Calculate position size
     skill: position-sizer
     consumes:
@@ -109,7 +123,7 @@ steps:
       - position_sizing
     decision_gate: false
 
-  - step: 6
+  - step: 7
     name: Build entry plan
     skill: breakout-trade-planner
     optional: true
@@ -120,7 +134,7 @@ steps:
       - trade_plans
     decision_gate: false
 
-  - step: 7
+  - step: 8
     name: Register thesis in journal
     skill: trader-memory-core
     consumes:
@@ -137,6 +151,7 @@ steps:
 manual_review:
   - Confirm market-regime-daily exposure_decision allows new risk before acting.
   - Reject any candidate where weekly setup is unclear, even if screener passed.
+  - Treat Stockbee momentum burst output as candidate generation only; require chart validation and risk-distance review.
   - Verify total portfolio heat is within budget before placing any order.
   - All orders are placed manually at the broker; no auto-execution.
 

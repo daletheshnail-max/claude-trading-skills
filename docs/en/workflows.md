@@ -24,7 +24,7 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 | [`market-regime-daily`](#market-regime-daily) — Market Regime Daily | daily | 15 | no-api-basic | beginner |
 | [`monthly-performance-review`](#monthly-performance-review) — Monthly Performance Review | monthly | 90 | no-api-basic | intermediate |
 | [`multi-asset-opportunity-daily`](#multi-asset-opportunity-daily) — Multi-Asset Opportunity Daily | daily | 45 | mixed | intermediate |
-| [`swing-opportunity-daily`](#swing-opportunity-daily) — Swing Opportunity Daily | daily | 30 | fmp-required | intermediate |
+| [`swing-opportunity-daily`](#swing-opportunity-daily) — Swing Opportunity Daily | daily | 35 | fmp-required | intermediate |
 | [`trade-memory-loop`](#trade-memory-loop) — Trade Memory Loop | ad-hoc | 30 | no-api-basic | beginner |
 
 ---
@@ -292,7 +292,7 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 
 ## Swing Opportunity Daily {#swing-opportunity-daily}
 
-**`swing-opportunity-daily`** · daily · ~30 min · fmp-required · intermediate
+**`swing-opportunity-daily`** · daily · ~35 min · fmp-required · intermediate
 
 **When to run:** Only after market-regime-daily has produced a non-restrictive exposure decision. Identifies swing trade candidates and builds entry plans.
 
@@ -300,7 +300,7 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 
 **Required skills:** `vcp-screener`, `technical-analyst`, `position-sizer`, `trader-memory-core`
 
-**Optional skills:** `canslim-screener`, `breakout-trade-planner`, `theme-detector`
+**Optional skills:** `stockbee-momentum-burst-screener`, `canslim-screener`, `breakout-trade-planner`, `theme-detector`
 
 **Prerequisite workflows (informational):**
 
@@ -311,12 +311,13 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 | Artifact | Produced by step | Required | Downstream hints |
 |---|---|---|---|
 | `vcp_candidates` | 1 | yes | — |
-| `canslim_candidates` | 2 | no | — |
-| `theme_candidates` | 3 | no | — |
-| `validated_setups` | 4 | yes | — |
-| `position_sizing` | 5 | yes | — |
-| `trade_plans` | 6 | no | `trade-memory-loop` |
-| `candidate_journal_entry` | 7 | yes | `trade-memory-loop` |
+| `momentum_burst_candidates` | 2 | no | — |
+| `canslim_candidates` | 3 | no | — |
+| `theme_candidates` | 4 | no | — |
+| `validated_setups` | 5 | yes | — |
+| `position_sizing` | 6 | yes | — |
+| `trade_plans` | 7 | no | `trade-memory-loop` |
+| `candidate_journal_entry` | 8 | yes | `trade-memory-loop` |
 
 **Steps:**
 
@@ -324,31 +325,35 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 
 - produces: `vcp_candidates`
 
-**Step 2: Run CANSLIM screener** (optional) → `canslim-screener`
+**Step 2: Run Stockbee momentum burst screener** (optional) → `stockbee-momentum-burst-screener`
+
+- produces: `momentum_burst_candidates`
+
+**Step 3: Run CANSLIM screener** (optional) → `canslim-screener`
 
 - produces: `canslim_candidates`
 
-**Step 3: Theme detection cross-check** (optional) → `theme-detector`
+**Step 4: Theme detection cross-check** (optional) → `theme-detector`
 
 - produces: `theme_candidates`
 
-**Step 4: Validate setups on weekly chart** (decision gate) → `technical-analyst`
+**Step 5: Validate setups on weekly chart** (decision gate) → `technical-analyst`
 
-- consumes: `vcp_candidates`, `canslim_candidates`, `theme_candidates`
+- consumes: `vcp_candidates`, `momentum_burst_candidates`, `canslim_candidates`, `theme_candidates`
 - produces: `validated_setups`
-- **Decision:** Which candidates have a clean weekly setup (Stage 2 uptrend, tight base) and pass the manual chart review? Reject candidates that don't.
+- **Decision:** Which candidates have a clean weekly setup (Stage 2 uptrend, tight base, or Stockbee-style range expansion from a controlled base) and pass the manual chart review? Reject candidates that don't.
 
-**Step 5: Calculate position size** → `position-sizer`
+**Step 6: Calculate position size** → `position-sizer`
 
 - consumes: `validated_setups`
 - produces: `position_sizing`
 
-**Step 6: Build entry plan** (optional) → `breakout-trade-planner`
+**Step 7: Build entry plan** (optional) → `breakout-trade-planner`
 
 - consumes: `validated_setups`, `position_sizing`
 - produces: `trade_plans`
 
-**Step 7: Register thesis in journal** (decision gate) → `trader-memory-core`
+**Step 8: Register thesis in journal** (decision gate) → `trader-memory-core`
 
 - consumes: `position_sizing`, `trade_plans`
 - produces: `candidate_journal_entry`
@@ -358,6 +363,7 @@ Operational workflow manifests for the solo-trader OS. Each workflow names the e
 
 - Confirm market-regime-daily exposure_decision allows new risk before acting.
 - Reject any candidate where weekly setup is unclear, even if screener passed.
+- Treat Stockbee momentum burst output as candidate generation only; require chart validation and risk-distance review.
 - Verify total portfolio heat is within budget before placing any order.
 - All orders are placed manually at the broker; no auto-execution.
 

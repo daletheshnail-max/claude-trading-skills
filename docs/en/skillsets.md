@@ -81,7 +81,7 @@ Purpose-specific skillset bundles for the solo-trader OS. A skillset is a catego
 
 **Recommended skills:** `canslim-screener`, `breakout-trade-planner`, `theme-detector`
 
-**Optional skills:** `finviz-screener`
+**Optional skills:** `stockbee-momentum-burst-screener`, `finviz-screener`
 
 **Related workflows:** `swing-opportunity-daily`
 

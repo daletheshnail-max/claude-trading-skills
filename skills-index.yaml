@@ -872,6 +872,37 @@ skills:
   outputs:
   - druckenmiller_synthesis_report
   workflows: []
+- id: stockbee-momentum-burst-screener
+  display_name: Stockbee Momentum Burst Screener
+  category: swing-opportunity
+  status: beta
+  summary: Screen US stocks for Stockbee-style 3-5 day momentum burst candidates using 4% breakout,
+    dollar breakout, range expansion, volume expansion, setup quality, and risk-distance filters.
+  timeframe: daily
+  difficulty: intermediate
+  integrations:
+  - id: fmp
+    type: market_data
+    requirement: required
+    note: Live US universe and daily OHLCV via Financial Modeling Prep
+  - id: prices_json
+    type: local_file
+    requirement: optional
+    note: Offline OHLCV JSON fallback for no-API screening and tests
+  - id: local_calculation
+    type: calculation
+    requirement: not_required
+    note: Trigger detection, setup scoring, risk-distance checks, and report generation
+  inputs:
+  - daily_ohlcv_universe
+  - market_regime_report
+  - risk_policy
+  outputs:
+  - momentum_burst_candidates
+  - setup_quality_scores
+  - trade_plan_inputs
+  workflows:
+  - swing-opportunity-daily
 - id: strategy-pivot-designer
   display_name: Strategy Pivot Designer
   category: strategy-research

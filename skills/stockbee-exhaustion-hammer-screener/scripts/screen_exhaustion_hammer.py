@@ -149,12 +149,15 @@ class FMPClient:
         if self.rate_limit_reached:
             return None
 
+        request_params = dict(params or {})
+        request_params.setdefault("apikey", self.api_key)
+
         elapsed = time.time() - self.last_call_time
         if elapsed < self.RATE_LIMIT_DELAY:
             time.sleep(self.RATE_LIMIT_DELAY - elapsed)
 
         try:
-            response = self.session.get(url, params=params or {}, timeout=30)
+            response = self.session.get(url, params=request_params, timeout=30)
             self.last_call_time = time.time()
             self.api_calls_made += 1
             if response.status_code == 200:

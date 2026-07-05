@@ -44,22 +44,29 @@ If Alpaca MCP Server is not connected, inform the user and provide setup instruc
 
 ## Workflow
 
-### Step 1: Fetch Portfolio Data via Alpaca MCP
+### Step 1: Fetch Portfolio Data via Alpaca MCP or REST fallback
 
-Use Alpaca MCP Server tools to gather current portfolio information:
+Use Alpaca MCP Server tools to gather current portfolio information when available. In scheduled Hermes jobs, MCP tools may not be exposed even when Alpaca credentials are present; in that case, use the Alpaca REST API directly with `ALPACA_API_KEY`, `ALPACA_SECRET_KEY`, and `ALPACA_PAPER`.
 
 **1.1 Get Account Information:**
 ```
-Use mcp__alpaca__get_account_info to fetch:
+Preferred: use mcp__alpaca__get_account_info to fetch:
 - Account equity (total portfolio value)
 - Cash balance
 - Buying power
 - Account status
+
+Fallback REST endpoints:
+- paper: https://paper-api.alpaca.markets/v2/account
+- live:  https://api.alpaca.markets/v2/account
+Headers:
+- APCA-API-KEY-ID=$ALPACA_API_KEY
+- APCA-API-SECRET-KEY=$ALPACA_SECRET_KEY
 ```
 
 **1.2 Get Current Positions:**
 ```
-Use mcp__alpaca__get_positions to fetch all holdings:
+Preferred: use mcp__alpaca__get_positions to fetch all holdings:
 - Symbol ticker
 - Quantity held
 - Average entry price (cost basis)
@@ -67,15 +74,29 @@ Use mcp__alpaca__get_positions to fetch all holdings:
 - Current market value
 - Unrealized P&L ($ and %)
 - Position size as % of portfolio
+
+Fallback REST endpoints:
+- paper: https://paper-api.alpaca.markets/v2/positions
+- live:  https://api.alpaca.markets/v2/positions
 ```
 
 **1.3 Get Portfolio History (Optional):**
 ```
-Use mcp__alpaca__get_portfolio_history for performance analysis:
+Preferred: use mcp__alpaca__get_portfolio_history for performance analysis:
 - Historical equity values
 - Time-weighted return calculation
 - Drawdown analysis
+
+Fallback REST endpoint:
+- /v2/account/portfolio/history
 ```
+
+**Scheduled-job fallback discipline:**
+- Clearly label the source as `Alpaca REST fallback` rather than MCP.
+- Use `ALPACA_PAPER=true` to choose paper endpoint; otherwise use live endpoint.
+- Still validate that long market value plus cash approximately reconciles to equity, and highlight margin/leverage if `long_market_value > equity`.
+- For weekly core portfolio cron jobs, compute exposure using equity as the denominator as well as gross market value: `gross_long_exposure = long_market_value / equity`, `cash_pct = cash / equity`, and explicitly flag margin-funded portfolios when gross exposure is materially above 100% or cash is negative. Do not let sector weights look benign by using only gross-long denominator when the account is levered.
+- When the request emphasizes dividend holdings or forced-review triggers, build normalized monitor input from the live holdings and hand it to `kanchi-dividend-review-monitor` rather than treating dividend review as a narrative-only section. Also build tax-planning input for `kanchi-dividend-us-tax-accounting` when account-location notes are requested; label it degraded if account type or holding-period windows are unavailable.
 
 **Data Validation:**
 - Verify all positions have valid ticker symbols

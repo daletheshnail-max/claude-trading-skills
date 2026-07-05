@@ -1,0 +1,352 @@
+//@version=6
+indicator("Free Plan Unlocked - MAX", "FPU-MAX", overlay=true, max_lines_count=500, max_labels_count=500, max_boxes_count=500)
+
+// ═══════════════════════════════════════════════════════════
+//  INPUTS
+// ═══════════════════════════════════════════════════════════
+grpOv   = "── Overlay ──"
+enMA    = input.bool(true,  "MAs",              group=grpOv)
+maF     = input.int(9,      "Fast MA",          group=grpOv, minval=1)
+maS     = input.int(21,     "Slow MA",          group=grpOv, minval=1)
+ma50    = input.int(50,     "MA 50",            group=grpOv, minval=1)
+ma200   = input.int(200,    "MA 200",           group=grpOv, minval=1)
+enVWAP  = input.bool(true,  "Session VWAP",     group=grpOv)
+enAVWAP = input.bool(true,  "Anchored VWAP",    group=grpOv)
+avDate  = input.time(timestamp("2025-01-01T00:00:00"),  "AVWAP Anchor", group=grpOv)
+enLevs  = input.bool(true,  "Key Levels (PDH/PDL/PWH/PWL)", group=grpOv)
+enSess  = input.bool(true,  "Sessions",         group=grpOv)
+enSig   = input.bool(true,  "Buy/Sell Signals", group=grpOv)
+
+grpMtx  = "── Matrix ──"
+enMtx   = input.bool(true,  "Show Matrix Table", group=grpMtx)
+tf1     = input.timeframe("5",   "TF 1", group=grpMtx)
+tf2     = input.timeframe("15",  "TF 2", group=grpMtx)
+tf3     = input.timeframe("60",  "TF 3", group=grpMtx)
+tf4     = input.timeframe("240", "TF 4", group=grpMtx)
+tf5     = input.timeframe("D",   "TF 5", group=grpMtx)
+tf6     = input.timeframe("W",   "TF 6", group=grpMtx)
+
+grpAl   = "── Alerts ──"
+alSignals = input.bool(true,  "Buy/Sell alerts",   group=grpAl)
+alPDH     = input.bool(true,  "PDH/PDL break",     group=grpAl)
+alRSI     = input.bool(true,  "RSI 70/30",         group=grpAl)
+
+// ═══════════════════════════════════════════════════════════
+//  COLOURS
+// ═══════════════════════════════════════════════════════════
+cBull   = color.new(color.lime,   0)
+cBear   = color.new(color.red,    0)
+cNeut   = color.new(color.gray,   0)
+cVWAP   = color.new(color.yellow, 0)
+cAVWAP  = color.new(color.orange, 0)
+cPDH    = color.new(color.teal,   50)
+cPDL    = color.new(color.maroon, 50)
+cPWH    = color.new(color.blue,   60)
+cPWL    = color.new(color.purple, 60)
+
+// ═══════════════════════════════════════════════════════════
+//  HELPER FUNCTIONS
+// ═══════════════════════════════════════════════════════════
+f_macdBull() =>
+    [macdLine, signalLine, _] = ta.macd(close, 12, 26, 9)
+    macdLine > signalLine
+
+f_macdHist() =>
+    [macdLine, signalLine, _] = ta.macd(close, 12, 26, 9)
+    macdLine - signalLine
+
+f_adxVal() =>
+    [adxVal, _, _] = ta.dmi(14, 14)
+    adxVal
+
+f_diBull() =>
+    [_, diPlus, diMinus] = ta.dmi(14, 14)
+    diPlus > diMinus
+
+f_bbPctB() =>
+    [upper, _, lower] = ta.bb(close, 20, 2.0)
+    (close - lower) / (upper - lower)
+
+f_stBull() =>
+    k = ta.stoch(close, high, low, 14)
+    k > 50
+
+// ═══════════════════════════════════════════════════════════
+//  OVERLAY — MAs
+// ═══════════════════════════════════════════════════════════
+emaF_   = ta.ema(close, maF)
+emaS_   = ta.ema(close, maS)
+ema50_  = ta.ema(close, ma50)
+ema200_ = ta.ema(close, ma200)
+
+plot(enMA ? emaF_  : na, "EMA Fast",  color=color.new(color.aqua,   0), linewidth=1)
+plot(enMA ? emaS_  : na, "EMA Slow",  color=color.new(color.yellow, 0), linewidth=1)
+plot(enMA ? ema50_ : na, "EMA 50",    color=color.new(color.orange, 0), linewidth=1)
+plot(enMA ? ema200_: na, "EMA 200",   color=color.new(color.red,    0), linewidth=2)
+
+// ═══════════════════════════════════════════════════════════
+//  OVERLAY — Session VWAP + bands
+// ═══════════════════════════════════════════════════════════
+[vwapVal, vwapUpper, vwapLower] = ta.vwap(hlc3, false, 1)
+plot(enVWAP ? vwapVal   : na, "VWAP",       color=cVWAP,                    linewidth=2)
+plot(enVWAP ? vwapUpper : na, "VWAP +1σ",  color=color.new(cVWAP, 60))
+plot(enVWAP ? vwapLower : na, "VWAP -1σ",  color=color.new(cVWAP, 60))
+
+// ═══════════════════════════════════════════════════════════
+//  OVERLAY — Anchored VWAP
+// ═══════════════════════════════════════════════════════════
+var float avSumPV = 0.0
+var float avSumV  = 0.0
+if time >= avDate and time[1] < avDate
+    avSumPV := 0.0
+    avSumV  := 0.0
+if time >= avDate
+    avSumPV += hlc3 * volume
+    avSumV  += volume
+avwapVal = avSumV > 0 ? avSumPV / avSumV : na
+plot(enAVWAP ? avwapVal : na, "Anchored VWAP", color=cAVWAP, linewidth=2)
+
+// ═══════════════════════════════════════════════════════════
+//  OVERLAY — Key Levels (computed locally — zero security cost)
+// ═══════════════════════════════════════════════════════════
+isNewD = ta.change(time("D")) != 0
+isNewW = ta.change(time("W")) != 0
+
+var float pdh = na, var float pdl = na
+var float pwh = na, var float pwl = na
+var float _dh = na, var float _dl = na
+var float _wh = na, var float _wl = na
+
+if isNewD
+    pdh := _dh
+    pdl := _dl
+    _dh  := high
+    _dl  := low
+else
+    _dh  := math.max(nz(_dh, high), high)
+    _dl  := math.min(nz(_dl, low),  low)
+
+if isNewW
+    pwh := _wh
+    pwl := _wl
+    _wh  := high
+    _wl  := low
+else
+    _wh  := math.max(nz(_wh, high), high)
+    _wl  := math.min(nz(_wl, low),  low)
+
+plot(enLevs ? pdh : na, "PDH", color=cPDH, linewidth=1, style=plot.style_stepline)
+plot(enLevs ? pdl : na, "PDL", color=cPDL, linewidth=1, style=plot.style_stepline)
+plot(enLevs ? pwh : na, "PWH", color=cPWH, linewidth=1, style=plot.style_stepline)
+plot(enLevs ? pwl : na, "PWL", color=cPWL, linewidth=1, style=plot.style_stepline)
+
+// ═══════════════════════════════════════════════════════════
+//  OVERLAY — Sessions
+// ═══════════════════════════════════════════════════════════
+inAsia   = time(timeframe.period, "0000-0900:23456") != 0
+inLondon = time(timeframe.period, "0700-1600:23456") != 0
+inNY     = time(timeframe.period, "1300-2200:23456") != 0
+
+bgcolor(enSess and inAsia   ? color.new(color.blue,   92) : na, title="Asia")
+bgcolor(enSess and inLondon ? color.new(color.orange,  92) : na, title="London")
+bgcolor(enSess and inNY     ? color.new(color.green,   92) : na, title="NY")
+
+// ═══════════════════════════════════════════════════════════
+//  OVERLAY — Buy / Sell Signals
+// ═══════════════════════════════════════════════════════════
+sRsi    = ta.rsi(close, 14)
+buySig  = ta.crossover(emaF_,  emaS_) and sRsi < 70
+sellSig = ta.crossunder(emaF_, emaS_) and sRsi > 30
+
+plotshape(enSig and buySig,  "BUY",  shape.labelup,   location.belowbar, cBull, text="B", textcolor=color.white, size=size.small)
+plotshape(enSig and sellSig, "SELL", shape.labeldown,  location.abovebar, cBear, text="S", textcolor=color.white, size=size.small)
+
+// ═══════════════════════════════════════════════════════════
+//  MATRIX — request.security (6 × 21-element tuple = 126)
+// ═══════════════════════════════════════════════════════════
+f_scan(tf) =>
+    request.security(syminfo.tickerid, tf, [
+     ta.ema(close, 9) > ta.ema(close, 21),
+     ta.ema(close, 21) > ta.ema(close, 50),
+     ta.ema(close, 50) > ta.ema(close, 200),
+     ta.rsi(close, 14),
+     ta.stoch(close, high, low, 14),
+     f_macdBull(),
+     f_macdHist(),
+     ta.cci(close, 20),
+     ta.mfi(hlc3, 14),
+     f_adxVal(),
+     f_diBull(),
+     f_bbPctB(),
+     ta.wpr(14),
+     ta.roc(close, 9),
+     ta.atr(14) / close * 100.0,
+     ta.obv > ta.obv[1],
+     f_stBull(),
+     ta.mom(close, 10) > 0,
+     close > ta.sma(close, 20),
+     close > ta.sma(close, 50),
+     close > close[10]
+    ], lookahead=barmerge.lookahead_off)
+
+[r1_e9x21, r1_e21x50, r1_e50x200, r1_rsi, r1_stoch, r1_macdB, r1_macdH, r1_cci, r1_mfi, r1_adx, r1_diB, r1_bbPB, r1_wpr, r1_roc, r1_atrPct, r1_obvB, r1_stB, r1_momB, r1_abv20, r1_abv50, r1_abv10] = f_scan(tf1)
+[r2_e9x21, r2_e21x50, r2_e50x200, r2_rsi, r2_stoch, r2_macdB, r2_macdH, r2_cci, r2_mfi, r2_adx, r2_diB, r2_bbPB, r2_wpr, r2_roc, r2_atrPct, r2_obvB, r2_stB, r2_momB, r2_abv20, r2_abv50, r2_abv10] = f_scan(tf2)
+[r3_e9x21, r3_e21x50, r3_e50x200, r3_rsi, r3_stoch, r3_macdB, r3_macdH, r3_cci, r3_mfi, r3_adx, r3_diB, r3_bbPB, r3_wpr, r3_roc, r3_atrPct, r3_obvB, r3_stB, r3_momB, r3_abv20, r3_abv50, r3_abv10] = f_scan(tf3)
+[r4_e9x21, r4_e21x50, r4_e50x200, r4_rsi, r4_stoch, r4_macdB, r4_macdH, r4_cci, r4_mfi, r4_adx, r4_diB, r4_bbPB, r4_wpr, r4_roc, r4_atrPct, r4_obvB, r4_stB, r4_momB, r4_abv20, r4_abv50, r4_abv10] = f_scan(tf4)
+[r5_e9x21, r5_e21x50, r5_e50x200, r5_rsi, r5_stoch, r5_macdB, r5_macdH, r5_cci, r5_mfi, r5_adx, r5_diB, r5_bbPB, r5_wpr, r5_roc, r5_atrPct, r5_obvB, r5_stB, r5_momB, r5_abv20, r5_abv50, r5_abv10] = f_scan(tf5)
+[r6_e9x21, r6_e21x50, r6_e50x200, r6_rsi, r6_stoch, r6_macdB, r6_macdH, r6_cci, r6_mfi, r6_adx, r6_diB, r6_bbPB, r6_wpr, r6_roc, r6_atrPct, r6_obvB, r6_stB, r6_momB, r6_abv20, r6_abv50, r6_abv10] = f_scan(tf6)
+
+// ═══════════════════════════════════════════════════════════
+//  MATRIX — Table rendering
+// ═══════════════════════════════════════════════════════════
+f_clr(bull) => bull ? cBull : cBear
+f_rsiClr(v) => v > 70 ? cBear : v < 30 ? cBull : cNeut
+f_txt(bull) => bull ? "▲" : "▼"
+f_pct(v)    => str.tostring(math.round(v, 1)) + "%"
+f_rsiTxt(v) => str.tostring(math.round(v, 0))
+
+var table tbl = table.new(position.bottom_right, 8, 23,
+ border_color=color.new(color.gray, 60), border_width=1,
+ frame_color=color.new(color.gray, 40), frame_width=1)
+
+ROWS = array.from("", "EMA 9>21", "EMA 21>50", "EMA 50>200", "RSI", "Stoch", "MACD", "MACD Hist", "CCI", "MFI", "ADX", "DI Bull", "BB %B", "WPR", "ROC", "ATR%", "OBV Bull", "Stoch Bull", "Mom Bull", "Abv SMA20", "Abv SMA50", "Abv 10b", "Score")
+COLS = array.from("Indicator", tf1, tf2, tf3, tf4, tf5, tf6, "All")
+
+f_score(b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15, b16, b17, b18, b19, b20, b21) =>
+    (b1 ? 1 : 0) + (b2 ? 1 : 0) + (b3 ? 1 : 0) + (b4 ? 1 : 0) + (b5 ? 1 : 0) + (b6 ? 1 : 0) + (b7 ? 1 : 0) + (b8 ? 1 : 0) + (b9 ? 1 : 0) + (b10 ? 1 : 0) + (b11 ? 1 : 0) + (b12 ? 1 : 0) + (b13 ? 1 : 0) + (b14 ? 1 : 0) + (b15 ? 1 : 0) + (b16 ? 1 : 0) + (b17 ? 1 : 0) + (b18 ? 1 : 0) + (b19 ? 1 : 0) + (b20 ? 1 : 0) + (b21 ? 1 : 0)
+
+if enMtx and barstate.islast
+    for r = 0 to 22
+        table.cell(tbl, 0, r, array.get(ROWS, r), text_color=color.white, bgcolor=color.new(color.gray, 70), text_size=size.small)
+    for c = 0 to 7
+        table.cell(tbl, c, 0, array.get(COLS, c), text_color=color.white, bgcolor=color.new(color.gray, 50), text_size=size.small)
+
+    // TF data arrays
+    e9x21  = array.from(r1_e9x21,   r2_e9x21,   r3_e9x21,   r4_e9x21,   r5_e9x21,   r6_e9x21)
+    e21x50 = array.from(r1_e21x50,  r2_e21x50,  r3_e21x50,  r4_e21x50,  r5_e21x50,  r6_e21x50)
+    e50x200= array.from(r1_e50x200, r2_e50x200, r3_e50x200, r4_e50x200, r5_e50x200, r6_e50x200)
+    rsiA   = array.from(r1_rsi,     r2_rsi,     r3_rsi,     r4_rsi,     r5_rsi,     r6_rsi)
+    stochA = array.from(r1_stoch,   r2_stoch,   r3_stoch,   r4_stoch,   r5_stoch,   r6_stoch)
+    macdBA = array.from(r1_macdB,   r2_macdB,   r3_macdB,   r4_macdB,   r5_macdB,   r6_macdB)
+    macdHA = array.from(r1_macdH,   r2_macdH,   r3_macdH,   r4_macdH,   r5_macdH,   r6_macdH)
+    cciA   = array.from(r1_cci,     r2_cci,     r3_cci,     r4_cci,     r5_cci,     r6_cci)
+    mfiA   = array.from(r1_mfi,     r2_mfi,     r3_mfi,     r4_mfi,     r5_mfi,     r6_mfi)
+    adxA   = array.from(r1_adx,     r2_adx,     r3_adx,     r4_adx,     r5_adx,     r6_adx)
+    diBA   = array.from(r1_diB,     r2_diB,     r3_diB,     r4_diB,     r5_diB,     r6_diB)
+    bbPBA  = array.from(r1_bbPB,    r2_bbPB,    r3_bbPB,    r4_bbPB,    r5_bbPB,    r6_bbPB)
+    wprA   = array.from(r1_wpr,     r2_wpr,     r3_wpr,     r4_wpr,     r5_wpr,     r6_wpr)
+    rocA   = array.from(r1_roc,     r2_roc,     r3_roc,     r4_roc,     r5_roc,     r6_roc)
+    atrPA  = array.from(r1_atrPct,  r2_atrPct,  r3_atrPct,  r4_atrPct,  r5_atrPct,  r6_atrPct)
+    obvBA  = array.from(r1_obvB,    r2_obvB,    r3_obvB,    r4_obvB,    r5_obvB,    r6_obvB)
+    stBA   = array.from(r1_stB,     r2_stB,     r3_stB,     r4_stB,     r5_stB,     r6_stB)
+    momBA  = array.from(r1_momB,    r2_momB,    r3_momB,    r4_momB,    r5_momB,    r6_momB)
+    abv20A = array.from(r1_abv20,   r2_abv20,   r3_abv20,   r4_abv20,   r5_abv20,   r6_abv20)
+    abv50A = array.from(r1_abv50,   r2_abv50,   r3_abv50,   r4_abv50,   r5_abv50,   r6_abv50)
+    abv10A = array.from(r1_abv10,   r2_abv10,   r3_abv10,   r4_abv10,   r5_abv10,   r6_abv10)
+
+    for c = 1 to 6
+        i = c - 1
+        e9   = array.get(e9x21,  i)
+        e21  = array.get(e21x50, i)
+        e50  = array.get(e50x200,i)
+        rsi_ = array.get(rsiA,   i)
+        stch = array.get(stochA, i)
+        mcdB = array.get(macdBA, i)
+        mcdH = array.get(macdHA, i)
+        cci_ = array.get(cciA,   i)
+        mfi_ = array.get(mfiA,   i)
+        adx_ = array.get(adxA,   i)
+        diB_ = array.get(diBA,   i)
+        bbpb = array.get(bbPBA,  i)
+        wpr_ = array.get(wprA,   i)
+        roc_ = array.get(rocA,   i)
+        atp_ = array.get(atrPA,  i)
+        ovB_ = array.get(obvBA,  i)
+        stB_ = array.get(stBA,   i)
+        mmB_ = array.get(momBA,  i)
+        a20_ = array.get(abv20A, i)
+        a50_ = array.get(abv50A, i)
+        a10_ = array.get(abv10A, i)
+
+        table.cell(tbl, c, 1,  f_txt(e9),              text_color=f_clr(e9),               bgcolor=color.new(color.black, 60), text_size=size.small)
+        table.cell(tbl, c, 2,  f_txt(e21),             text_color=f_clr(e21),              bgcolor=color.new(color.black, 60), text_size=size.small)
+        table.cell(tbl, c, 3,  f_txt(e50),             text_color=f_clr(e50),              bgcolor=color.new(color.black, 60), text_size=size.small)
+        table.cell(tbl, c, 4,  f_rsiTxt(rsi_),         text_color=f_rsiClr(rsi_),          bgcolor=color.new(color.black, 60), text_size=size.small)
+        table.cell(tbl, c, 5,  f_rsiTxt(stch),         text_color=f_rsiClr(stch),          bgcolor=color.new(color.black, 60), text_size=size.small)
+        table.cell(tbl, c, 6,  f_txt(mcdB),            text_color=f_clr(mcdB),             bgcolor=color.new(color.black, 60), text_size=size.small)
+        table.cell(tbl, c, 7,  f_pct(mcdH),            text_color=mcdH > 0 ? cBull : cBear, bgcolor=color.new(color.black, 60), text_size=size.small)
+        table.cell(tbl, c, 8,  f_rsiTxt(cci_),         text_color=cci_ > 0 ? cBull : cBear, bgcolor=color.new(color.black, 60), text_size=size.small)
+        table.cell(tbl, c, 9,  f_rsiTxt(mfi_),         text_color=f_rsiClr(mfi_),          bgcolor=color.new(color.black, 60), text_size=size.small)
+        table.cell(tbl, c, 10, f_rsiTxt(adx_),         text_color=adx_ > 25 ? cBull : cNeut, bgcolor=color.new(color.black, 60), text_size=size.small)
+        table.cell(tbl, c, 11, f_txt(diB_),            text_color=f_clr(diB_),             bgcolor=color.new(color.black, 60), text_size=size.small)
+        table.cell(tbl, c, 12, f_pct(bbpb * 100),      text_color=bbpb > 0.8 ? cBear : bbpb < 0.2 ? cBull : cNeut, bgcolor=color.new(color.black, 60), text_size=size.small)
+        table.cell(tbl, c, 13, f_rsiTxt(wpr_),         text_color=wpr_ > -20 ? cBear : wpr_ < -80 ? cBull : cNeut, bgcolor=color.new(color.black, 60), text_size=size.small)
+        table.cell(tbl, c, 14, f_pct(roc_),            text_color=roc_ > 0 ? cBull : cBear, bgcolor=color.new(color.black, 60), text_size=size.small)
+        table.cell(tbl, c, 15, f_pct(atp_),            text_color=cNeut,                   bgcolor=color.new(color.black, 60), text_size=size.small)
+        table.cell(tbl, c, 16, f_txt(ovB_),            text_color=f_clr(ovB_),             bgcolor=color.new(color.black, 60), text_size=size.small)
+        table.cell(tbl, c, 17, f_txt(stB_),            text_color=f_clr(stB_),             bgcolor=color.new(color.black, 60), text_size=size.small)
+        table.cell(tbl, c, 18, f_txt(mmB_),            text_color=f_clr(mmB_),             bgcolor=color.new(color.black, 60), text_size=size.small)
+        table.cell(tbl, c, 19, f_txt(a20_),            text_color=f_clr(a20_),             bgcolor=color.new(color.black, 60), text_size=size.small)
+        table.cell(tbl, c, 20, f_txt(a50_),            text_color=f_clr(a50_),             bgcolor=color.new(color.black, 60), text_size=size.small)
+        table.cell(tbl, c, 21, f_txt(a10_),            text_color=f_clr(a10_),             bgcolor=color.new(color.black, 60), text_size=size.small)
+
+        sc = f_score(e9, e21, e50, rsi_ > 50, stch > 50, mcdB, mcdH > 0, cci_ > 0, mfi_ > 50, adx_ > 25, diB_, bbpb > 0.5, wpr_ > -50, roc_ > 0, atp_ > 0, ovB_, stB_, mmB_, a20_, a50_, a10_)
+        table.cell(tbl, c, 22, str.tostring(sc) + "/21", text_color=sc >= 14 ? cBull : sc <= 7 ? cBear : cNeut, bgcolor=color.new(color.black, 50), text_size=size.small)
+
+    // "All TF" column — majority vote
+    for r = 1 to 21
+        bullCount = 0
+        bearCount = 0
+        for c = 1 to 6
+            clr = table.cell_get_text_color(tbl, c, r)
+            if clr == cBull
+                bullCount += 1
+            else if clr == cBear
+                bearCount += 1
+        allBull = bullCount > bearCount
+        table.cell(tbl, 7, r, allBull ? "▲" : "▼", text_color=allBull ? cBull : cBear, bgcolor=color.new(color.black, 40), text_size=size.small)
+
+    totalScore = f_score(
+     r1_e9x21 and r2_e9x21 and r3_e9x21,
+     r1_e21x50 and r2_e21x50 and r3_e21x50,
+     r1_e50x200 and r2_e50x200 and r3_e50x200,
+     r1_rsi > 50 and r2_rsi > 50,
+     r1_stoch > 50 and r2_stoch > 50,
+     r1_macdB and r2_macdB,
+     r1_macdH > 0 and r2_macdH > 0,
+     r1_cci > 0 and r2_cci > 0,
+     r1_mfi > 50 and r2_mfi > 50,
+     r1_adx > 25,
+     r1_diB and r2_diB,
+     r1_bbPB > 0.5 and r2_bbPB > 0.5,
+     r1_wpr > -50 and r2_wpr > -50,
+     r1_roc > 0 and r2_roc > 0,
+     r1_atrPct > 0,
+     r1_obvB and r2_obvB,
+     r1_stB and r2_stB,
+     r1_momB and r2_momB,
+     r1_abv20 and r2_abv20,
+     r1_abv50 and r2_abv50,
+     r1_abv10 and r2_abv10)
+    table.cell(tbl, 7, 22, str.tostring(totalScore) + "/21", text_color=totalScore >= 14 ? cBull : totalScore <= 7 ? cBear : cNeut, bgcolor=color.new(color.black, 40), text_size=size.small)
+
+// ═══════════════════════════════════════════════════════════
+//  SMART ALERT ENGINE
+// ═══════════════════════════════════════════════════════════
+crossAbovePdh   = ta.crossover(close, pdh)
+crossBelowPdl   = ta.crossunder(close, pdl)
+crossAboveRsi70 = ta.crossover(sRsi, 70)
+crossBelowRsi30 = ta.crossunder(sRsi, 30)
+
+if alSignals and buySig
+    alert("FPU BUY  " + syminfo.ticker + " @ " + str.tostring(close, format.mintick), alert.freq_once_per_bar_close)
+if alSignals and sellSig
+    alert("FPU SELL " + syminfo.ticker + " @ " + str.tostring(close, format.mintick), alert.freq_once_per_bar_close)
+if alPDH and not na(pdh) and crossAbovePdh
+    alert("FPU break ABOVE prev-day high " + syminfo.ticker, alert.freq_once_per_bar_close)
+if alPDH and not na(pdl) and crossBelowPdl
+    alert("FPU break BELOW prev-day low " + syminfo.ticker, alert.freq_once_per_bar_close)
+if alRSI and crossAboveRsi70
+    alert("FPU RSI > 70 " + syminfo.ticker, alert.freq_once_per_bar_close)
+if alRSI and crossBelowRsi30
+    alert("FPU RSI < 30 " + syminfo.ticker, alert.freq_once_per_bar_close)
